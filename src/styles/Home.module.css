@@ -1,0 +1,10 @@
+.mainTable {
+  max-width: 50rem;
+  width: 90%;
+  margin: auto;
+  border-collapse: collapse;
+}
+
+.mainTable > tr:nth-child(even) {
+  background-color: #eee;
+}
