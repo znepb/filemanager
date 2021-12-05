@@ -1,15 +1,31 @@
-import FileImage from '../components/FileImage.tsx'
-import styles from "../styles/File.module.css"
-import Link from 'next/link'
+import Link from "next/link";
 
+import {useRouter} from "next/router";
+import path from "path";
+import {useEffect, useState} from 'react';
 
-export default function File(props) {
-  console.log(props);
-  
-  const date = new Date(props.created);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+interface Size {
+  size: number,
+  label: string
+}
 
-  const sizes = [
+interface FileProps { 
+  created: string,
+  name: string,
+  folder: boolean,
+  ext?: string,
+  size: number
+}
+
+export default function File( { created, name, folder, ext, size }: FileProps ) {
+  const [sizeStr, setSize] = useState("");
+
+  const router = useRouter();
+
+  const date = new Date(created);
+  const months: string[] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  const sizes: Size[] = [
     {
       size: 1024,
       label: " B"
@@ -30,38 +46,37 @@ export default function File(props) {
 
   const m = 100;
 
-  function checkSize(size) {
-    for(let i in sizes) {
-      let o = sizes[i];
-      let divide = 1;
-      if(i > 0) {
-        divide = sizes[i - 1].size;
+  function checkSize() {
+    let sizeSet = false;
+    sizes.forEach((o: Size, i: number) => {
+      if(size < o.size && !sizeSet) {
+        sizeSet = true;
+        setSize(`${Math.floor(o.size / size)} ${o.label}`);
+        return;
       }
-      console.log(size, o.size);
-
-      if(size < o.size) {
-        console.log(Math.floor(size / divide).toString() + o.label);
-        return Math.floor(size / divide).toString() + o.label;
-      }
-    }
+    })
   }
 
-  console.log(props.path);
+  useEffect(checkSize, []);
 
-  return <tr key={props.name}>
+  return <tr key={name}>
     <td>
-      <Link href={props.folder ? props.relpath : "api/" + props.path}>
-        <a>{props.name}</a>
-      </Link>
+      {folder ? (
+        <strong>
+          <Link href={router.query.file && typeof router.query.file === "object" ? "/" + path.join(router.query.file.join("/"), name) : name}>{name}</Link>
+        </strong>
+      ) : (
+        <a target="_blank" href={router.query.file && typeof router.query.file === "object" ? "/" + path.join(router.query.file.join("/"), name) : name}>{name}</a>
+      )}
     </td>
     <td>
-      {props.ext}
+      {ext && ext}
     </td>
     <td>
-      {date.toDateString()} {date.toLocaleTimeString()}
+      {date.toLocaleDateString()} {date.toLocaleTimeString()}
     </td>
     <td>
-      {props.folder ? "" : checkSize(props.size)}
+      {!folder && sizeStr}
     </td>
   </tr>
 }

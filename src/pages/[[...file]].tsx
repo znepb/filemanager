@@ -1,107 +1,141 @@
-import Head from 'next/head'
-import Image from 'next/image'
 import styles from '../styles/Home.module.css'
-import File from '../components/File.tsx'
-import Link from 'next/link'
+import File from '../components/File'
+import MarkdownView from 'react-showdown';
 
-import * as fs from 'fs';
-const patha = require("path");
+import Head from "next/head";
+import Link from "next/link";
 
-export default function Home({files, folders, baseDir}) {
-  if(files === undefined) {
-    return <p>Loading...</p>;
+import title from "../../config";
+
+import {useRouter} from 'next/router';
+import {useEffect, useState} from "react";
+
+export default function Home() {
+  const [loaded, setLoaded] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [baseDir, setBaseDir] = useState([]);
+  const [md, setMd] = useState();
+
+  const [dirUp, setDirUp] = useState("/");
+
+  const router = useRouter();
+
+  function load() {
+    if(router.isReady) {
+      if(typeof router.query.file == "object" || typeof router.query.file == "undefined") {
+        setBaseDir(router.query.file);
+
+        let baseDirClone = router.query.file ? [...router.query.file] : [];
+        baseDirClone.pop();
+        setDirUp("/" + baseDirClone.join("/"));
+
+        let path = router.query.file ? router.query.file.join("/") : "";
+
+        setLoaded(false);
+        fetch(`/api/list/${path}`).then(resp => resp.json().then((json) => {
+          if(!json.error) {
+            const content = json.files;
+            const tempFolders = [];
+            const tempFiles = [];
+
+            content.forEach((o) => {
+              if(o.isDirectory) {
+                tempFolders.push(o);
+              } else {
+                const tempFile = {
+                  ext: o.name.match(/\.[0-9a-z]+$/i),
+                  ...o,
+                }
+
+                tempFiles.push(tempFile);
+              }
+            })
+
+            setMd(json.readme);
+            setFolders(tempFolders);
+            setFiles(tempFiles);
+
+            setLoaded(true);
+          }
+        }))
+      }
+    }
   }
-  return <>
-    <h3>znepb's File Manager</h3>
+
+  useEffect(load, [router])
+
+  return loaded ? (
+    <main>
+      <Head>
+        <title>/{baseDir && baseDir.join("/")} - {title.title}</title>
+      </Head>
+      
+      <h3>{title.title}</h3>
+      <strong>
+        <Link href={dirUp}>../</Link>
+        
+        <span style={{
+          paddingRight: "1rem"
+        }}></span>
+
+        <span>/</span>
+        <span>
+          {baseDir && baseDir.join("/")}
+        </span>
+      </strong>
+
+      <br />
+
+      <div>
+        <MarkdownView markdown={md} options={{tables: true, emoji: true}}/>
+      </div>
+
+      <table className={styles.mainTable}>
+        <thead>
+          <tr><th>File Name</th><th>Type</th><th>Created</th><th>Size</th></tr>
+        </thead>
+        <tbody>
+          {folders.map((folder) => (
+            <File 
+              name={folder.name} 
+              ext="Folder"
+              created={folder.created} 
+              size={folder.size} 
+              folder={true}
+            />  
+          ))}
+
+          {files.map((file) => (
+            <File 
+              name={file.name} 
+              ext={file.ext}
+              created={file.created} 
+              size={file.size} 
+              folder={false}
+            />  
+          ))}
+        </tbody>
+      </table>
+  </main> ) : ( <main>
+    <Head>
+      <title>{title.title}</title>
+    </Head>
+      
+    <h3>{title.title}</h3>
     <strong>
-      <Link href="../"><a>../</a></Link>
+      <Link href={dirUp}>../</Link>
       
       <span style={{
         paddingRight: "1rem"
       }}></span>
-
+      
       <span>/</span>
       <span>
-        {baseDir.join("/")}
+        {baseDir && baseDir.join("/")}
       </span>
     </strong>
-    <table className={styles.mainTable}>
-      <tr><th>File Name</th><th>Type</th><th>Created</th><th>Size</th></tr>
-      {folders.map((folder) => (
-         <File name={folder.name} ext={folder.ext} created={folder.created} size={folder.size} path={folder.path} folder={folder.folder} relpath={folder.relPath}></File>
-      ))}
 
-      {files.map((file) => (
-         <File name={file.name} ext={file.ext} created={file.created} size={file.size} path={file.path} folder={file.folder}></File>
-      ))}
-    </table>
-  </>
-}
-
-export async function getStaticPaths() {
-  let paths = [];
-
-  return {
-    paths: [
-      ""
-    ],
-    fallback: true,
-  }
-}
-
-export async function getStaticProps(context) {
-  const outfiles = [];
-  const outfolders = [];
-
-  const base = context.params.file || [];
-  console.log("BaseNExt");
-  console.log(base);
-
-  let basePath = "";
-  if(base) {
-    basePath = base.join("/");
-  }
-
-  let dir = patha.join("./files/", basePath);
-  console.log("lsdir", dir);
-  let files = fs.readdirSync(dir);
-
-  for(let i in files) {
-    let file = files[i];
-    let extension = file.split('.').pop();
-    console.log(patha.join(dir, file));
-    let stats = fs.statSync(patha.join(dir, file));
-    console.log(stats.size);
-
-    if(stats.isDirectory()) {
-      outfolders.push({
-        name: file,
-        ext: "Folder",
-        created: stats.birthtime.toISOString(),
-        size: stats.size,
-        path: patha.join(dir, file),
-        folder: stats.isDirectory(),
-        relPath: basePath + "/" + file
-      })
-    } else {
-      outfiles.push({
-        name: file,
-        ext: extension,
-        created: stats.birthtime.toISOString(),
-        size: stats.size,
-        path: patha.join(dir, file),
-        folder: stats.isDirectory()
-      })
-    }
-  }
- 
-  console.log("NextUndefined");
-  console.log(base);
-  return {
-    props: {
-      files: outfiles,
-      folders: outfolders,
-      baseDir: base || []
-    }, // will be passed to the page component as props
-  }
+    <p>Loading...</p>
+  </main> )
 }

@@ -18,3 +18,9 @@ a {
 th, td {
   padding: 0.5rem;
 }
+
+main {
+  max-width: 60rem;
+  width: 90%;
+  margin: auto;
+}
